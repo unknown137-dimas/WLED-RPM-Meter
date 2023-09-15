@@ -1,24 +1,16 @@
 #pragma once
 
 #include "wled.h"
-#include "HardwareSerial.h"
-
-#define ESP_BT Serial
-// #define ESP_BT_RX 3
 
 class UsermodRPM_Meter : public Usermod
 {
 private:
   String rawData;
   String data;
-  byte inData;
-  char inChar;
-  long OBD_Value;
+  long currentRPM = 0;
+  long lastRPM = 0;
   long maxRPM = 9000;
   
-  int BT_StatePin = D7;
-  bool BT_State = false;
-
   unsigned long refreshRate = 5;
   unsigned long now;
   
@@ -36,20 +28,6 @@ private:
   Throttle position -> 41 11 7D
   */
 
-  // Read OBD data
-  void readData()
-  {
-    rawData = "";
-    if(ESP_BT.available())
-    {
-      inData = 0;
-      inChar = 0;
-      inData = ESP_BT.read();
-      inChar = char(inData);
-      rawData += inChar;
-    }
-  }
-
   // Display RPM value to LED strip
   void displayRPM(int percentage)
   {
@@ -60,8 +38,7 @@ private:
   // Write usermod state to JSON
   void writeToJson(JsonObject &RPM_Meter)
   {
-    RPM_Meter[F("raw-data")] = data;
-    RPM_Meter[F("rpm-value")] = OBD_Value;
+    RPM_Meter[F("last-rpm")] = lastRPM;
     RPM_Meter[F("max-rpm")] = maxRPM;
     RPM_Meter[F("refresh-rate")] = refreshRate;
   }
@@ -73,35 +50,30 @@ private:
 public:
   void setup()
   {
-    ESP_BT.begin(38400);
+    Serial.begin(38400);
     Serial1.begin(38400);
-    pinMode(BT_StatePin, INPUT);
   }
 
   void loop()
   {
-    BT_State = digitalRead(BT_StatePin);
-    
-    // Skip executing if bluetooth not connected
-    if(!BT_State)
-    {
-      return;
-    }
-
     if(millis() - now > 1000 / refreshRate)
     {
       // Read RPM data from OBD
       Serial1.println("010C"); // Send RPM PID request
-      readData();
+      rawData = Serial.readString();
 
       // Convert to decimal number
       data = rawData.substring(12, 14) + rawData.substring(15, 17);
-      OBD_Value = strtol(data.c_str(), NULL, 16) / 4; //convert hex to decimnal
-      ESP_BT.println(data);
-      ESP_BT.println(OBD_Value);
+      currentRPM = strtol(data.c_str(), NULL, 16) / 4; //convert hex to decimnal
 
-      // Process to LED
-      displayRPM((OBD_Value / maxRPM * 100));
+      // Only update LED if there is a change in RPM value
+      if(currentRPM != lastRPM)
+      {
+        lastRPM = currentRPM;
+        
+        // Process to LED
+        displayRPM((currentRPM / maxRPM * 100));
+      }
       
       now = millis();
     }
