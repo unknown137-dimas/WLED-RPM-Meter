@@ -7,9 +7,10 @@ class UsermodRPM_Meter : public Usermod
 private:
   String rawData;
   String data;
-  long currentRPM = 0;
-  long lastRPM = 0;
-  long maxRPM = 9000;
+  
+  int currentRPM = 0;
+  int lastRPM = 0;
+  int maxRPM = 9000;
   
   unsigned long refreshRate = 5;
   unsigned long now;
@@ -66,13 +67,15 @@ public:
       data = rawData.substring(12, 14) + rawData.substring(15, 17);
       currentRPM = strtol(data.c_str(), NULL, 16) / 4; //convert hex to decimnal
 
+      // currentRPM = random(1000, 9000);
+
       // Only update LED if there is a change in RPM value
       if(currentRPM != lastRPM)
       {
-        lastRPM = currentRPM;
-        
         // Process to LED
-        displayRPM((currentRPM / maxRPM * 100));
+        displayRPM(currentRPM * 100 / maxRPM);
+        
+        lastRPM = currentRPM;
       }
       
       now = millis();
@@ -98,7 +101,11 @@ public:
 
     // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
     configComplete &= getJsonValue(RPM_Meter["max_RPM"], maxRPM, 9000);
-    configComplete &= getJsonValue(RPM_Meter["refresh_rate"], refreshRate, 5);
+    configComplete &= getJsonValue(RPM_Meter["refresh_rate"], refreshRate, 1);
+    if(!(RPM_Meter["refresh_rate"] > 0))
+    {
+      RPM_Meter["refresh_rate"] = 1;
+    }
 
     return configComplete;
   }
@@ -112,7 +119,10 @@ public:
       RPM_Meter = root.createNestedObject(FPSTR(_name));
     }
     RPM_Meter[FPSTR(_maxRPM)] = maxRPM;
-    RPM_Meter[FPSTR(_refreshRate)] = refreshRate;
+    if(refreshRate > 0)
+    {
+      RPM_Meter[FPSTR(_refreshRate)] = refreshRate;
+    }
   }
 };
 
