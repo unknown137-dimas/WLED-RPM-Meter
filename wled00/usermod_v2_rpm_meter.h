@@ -29,6 +29,15 @@ private:
   Throttle position -> 41 11 7D
   */
 
+  // Read serial data
+  void readData()
+  {
+    while(Serial.available() > 0)
+    {
+      rawData = Serial.readString();
+    }
+  }
+  
   // Display RPM value to LED strip
   void displayRPM(int percentage)
   {
@@ -57,25 +66,28 @@ public:
 
   void loop()
   {
+    readData();
+
     if(millis() - now > 1000 / refreshRate)
     {
       // Read RPM data from OBD
       Serial1.println("010C"); // Send RPM PID request
-      rawData = Serial.readString();
 
-      // Convert to decimal number
-      data = rawData.substring(12, 14) + rawData.substring(15, 17);
-      currentRPM = strtol(data.c_str(), NULL, 16) / 4; //convert hex to decimnal
-
-      // currentRPM = random(1000, 9000);
-
-      // Only update LED if there is a change in RPM value
-      if(currentRPM != lastRPM)
+      // Check if rawData has enough RPM data
+      int rawDataLength = rawData.length();
+      if(rawDataLength > 8)
       {
-        // Process to LED
-        displayRPM(currentRPM * 100 / maxRPM);
-        
-        lastRPM = currentRPM;
+        data = rawData.substring(rawDataLength - 9, rawDataLength - 7) + rawData.substring(rawDataLength - 6, rawDataLength - 4); // Get RPM hex value
+        currentRPM = strtol(data.c_str(), NULL, 16) / 4; // Convert to RPM decimal value
+
+        // Only update LED if there is a change in RPM value
+        if(currentRPM != lastRPM)
+        {
+          // Process to LED
+          displayRPM(currentRPM * 100 / maxRPM);
+          
+          lastRPM = currentRPM;
+        }
       }
       
       now = millis();
@@ -102,7 +114,7 @@ public:
     // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
     configComplete &= getJsonValue(RPM_Meter["max_RPM"], maxRPM, 9000);
     configComplete &= getJsonValue(RPM_Meter["refresh_rate"], refreshRate, 1);
-    if(!(RPM_Meter["refresh_rate"] > 0))
+    if(RPM_Meter["refresh_rate"] != 0)
     {
       RPM_Meter["refresh_rate"] = 1;
     }
