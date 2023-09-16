@@ -14,6 +14,10 @@ private:
   
   unsigned long refreshRate = 5;
   unsigned long now;
+
+  int btStatePin = D7;
+  bool btState = false;
+  bool lastBtState = false;
   
   /*
   OBD-II PID Requests, more info on https://en.wikipedia.org/wiki/OBD-II_PIDs#Standard_PIDs
@@ -48,6 +52,7 @@ private:
   // Write usermod state to JSON
   void writeToJson(JsonObject &RPM_Meter)
   {
+    RPM_Meter[F("bt-state")] = lastBtState;
     RPM_Meter[F("last-rpm")] = lastRPM;
     RPM_Meter[F("max-rpm")] = maxRPM;
     RPM_Meter[F("refresh-rate")] = refreshRate;
@@ -62,35 +67,47 @@ public:
   {
     Serial.begin(38400);
     Serial1.begin(38400);
+    pinMode(btStatePin, INPUT);
   }
 
   void loop()
   {
-    readData();
+    // Check BT connection to the OBD
+    btState = digitalRead(btStatePin);
+    if(btState != lastBtState)
+    {
+      lastBtState = btState;
+    }
 
-    if(millis() - now > 1000 / refreshRate)
+    // Only run command if BT is connected
+    if(btState)
     {
       // Read RPM data from OBD
-      Serial1.println("010C"); // Send RPM PID request
+      readData();
 
-      // Check if rawData has enough RPM data
-      int rawDataLength = rawData.length();
-      if(rawDataLength > 8)
+      if(millis() - now > 1000 / refreshRate)
       {
-        data = rawData.substring(rawDataLength - 9, rawDataLength - 7) + rawData.substring(rawDataLength - 6, rawDataLength - 4); // Get RPM hex value
-        currentRPM = strtol(data.c_str(), NULL, 16) / 4; // Convert to RPM decimal value
+        Serial1.println("010C"); // Send RPM PID request
 
-        // Only update LED if there is a change in RPM value
-        if(currentRPM != lastRPM)
+        // Check if rawData has enough RPM data
+        int rawDataLength = rawData.length();
+        if(rawDataLength > 8)
         {
-          // Process to LED
-          displayRPM(currentRPM * 100 / maxRPM);
-          
-          lastRPM = currentRPM;
+          data = rawData.substring(rawDataLength - 9, rawDataLength - 7) + rawData.substring(rawDataLength - 6, rawDataLength - 4); // Get RPM hex value
+          currentRPM = strtol(data.c_str(), NULL, 16) / 4; // Convert to RPM decimal value
+
+          // Only update LED if there is a change in RPM value
+          if(currentRPM != lastRPM)
+          {
+            // Process to LED
+            displayRPM(currentRPM * 100 / maxRPM);
+            
+            lastRPM = currentRPM;
+          }
         }
+        
+        now = millis();
       }
-      
-      now = millis();
     }
   }
 
