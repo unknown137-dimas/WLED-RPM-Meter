@@ -5,20 +5,25 @@
 class UsermodRPM_Meter : public Usermod
 {
 private:
+  // OBD related variables
   String rawData;
   String data;
-  
-  int currentRPM = 0;
-  int lastRPM = 0;
-  int maxRPM = 9000;
-  
-  unsigned long refreshRate = 5;
+  int rawDataLength;
+
+  // RPM related variables
+  unsigned int currentRPM = 0;
+  unsigned int lastRPM = 0;
+  unsigned int maxRPM = 9000;
+
+  // Timing related variables
+  unsigned long refreshRate = 8;
   unsigned long now;
 
+  // Bluetooth related variables
   int btStatePin = D7;
   bool btState = false;
   bool lastBtState = false;
-  
+
   /*
   OBD-II PID Requests, more info on https://en.wikipedia.org/wiki/OBD-II_PIDs#Standard_PIDs
   Examples:
@@ -36,12 +41,12 @@ private:
   // Read serial data
   void readData()
   {
-    while(Serial.available() > 0)
+    while (Serial.available())
     {
       rawData = Serial.readString();
     }
   }
-  
+
   // Display RPM value to LED strip
   void displayRPM(int percentage)
   {
@@ -66,7 +71,6 @@ public:
   void setup()
   {
     Serial.begin(38400);
-    Serial1.begin(38400);
     pinMode(btStatePin, INPUT);
   }
 
@@ -74,39 +78,36 @@ public:
   {
     // Check BT connection to the OBD
     btState = digitalRead(btStatePin);
-    if(btState != lastBtState)
+    if (btState != lastBtState)
     {
       lastBtState = btState;
     }
 
     // Only run command if BT is connected
-    if(btState)
+    if (btState)
     {
-      // Read RPM data from OBD
-      readData();
+      readData(); // Read RPM data from OBD
 
-      if(millis() - now > 1000 / refreshRate)
+      if (millis() - now > 1000 / refreshRate)
       {
-        Serial1.println("010C"); // Send RPM PID request
+        Serial.println("010C1"); // Send RPM PID request
 
         // Check if rawData has enough RPM data
-        int rawDataLength = rawData.length();
-        if(rawDataLength > 8)
+        rawDataLength = rawData.length();
+        if (rawDataLength > 8)
         {
           data = rawData.substring(rawDataLength - 9, rawDataLength - 7) + rawData.substring(rawDataLength - 6, rawDataLength - 4); // Get RPM hex value
-          currentRPM = strtol(data.c_str(), NULL, 16) / 4; // Convert to RPM decimal value
-
-          // Only update LED if there is a change in RPM value
-          if(currentRPM != lastRPM)
-          {
-            // Process to LED
-            displayRPM(currentRPM * 100 / maxRPM);
-            
-            lastRPM = currentRPM;
-          }
+          currentRPM = strtol(data.c_str(), NULL, 16) / 4;                                                                          // Convert to RPM decimal value
         }
-        
+
         now = millis();
+      }
+
+      // Only update LED if there is a change in RPM value
+      if (currentRPM != lastRPM)
+      {
+        displayRPM(currentRPM * 100 / maxRPM); // Process to LED
+        lastRPM = currentRPM;
       }
     }
   }
@@ -130,11 +131,7 @@ public:
 
     // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
     configComplete &= getJsonValue(RPM_Meter["max_RPM"], maxRPM, 9000);
-    configComplete &= getJsonValue(RPM_Meter["refresh_rate"], refreshRate, 1);
-    if(RPM_Meter["refresh_rate"] != 0)
-    {
-      RPM_Meter["refresh_rate"] = 1;
-    }
+    configComplete &= getJsonValue(RPM_Meter["refresh_rate"], refreshRate, 5);
 
     return configComplete;
   }
@@ -148,10 +145,7 @@ public:
       RPM_Meter = root.createNestedObject(FPSTR(_name));
     }
     RPM_Meter[FPSTR(_maxRPM)] = maxRPM;
-    if(refreshRate > 0)
-    {
-      RPM_Meter[FPSTR(_refreshRate)] = refreshRate;
-    }
+    RPM_Meter[FPSTR(_refreshRate)] = refreshRate > 0 ? refreshRate : 5;
   }
 };
 
