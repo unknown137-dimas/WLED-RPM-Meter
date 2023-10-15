@@ -13,11 +13,13 @@ private:
   // RPM related variables
   unsigned int currentRPM = 0;
   unsigned int lastRPM = 0;
-  unsigned int maxRPM = 9000;
+  unsigned int maxRPM = 7500;
 
   // Timing related variables
   unsigned long refreshRate = 8;
+  unsigned long flashRate = 20;
   unsigned long now;
+  unsigned long warningNow;
 
   // Bluetooth related variables
   int btStatePin = D7;
@@ -51,7 +53,29 @@ private:
   void displayRPM(int percentage)
   {
     Segment &Segment = strip.getSegment(0);
-    Segment.intensity = percentage;
+    if (!Segment.on)
+    {
+      Segment.on = true;
+    }
+    if (percentage > 100)
+    {
+      Segment.intensity = 100;
+    }
+    else
+    {
+      Segment.intensity = percentage;
+    }
+  }
+
+  // Flash the LED strip
+  void warningLight(unsigned long delay)
+  {
+    Segment &Segment = strip.getSegment(0);
+    if (millis() - warningNow > delay)
+    {
+      Segment.on = !Segment.on;
+      warningNow = millis();
+    }
   }
 
   // Write usermod state to JSON
@@ -60,12 +84,14 @@ private:
     RPM_Meter[F("bt-state")] = lastBtState;
     RPM_Meter[F("last-rpm")] = lastRPM;
     RPM_Meter[F("max-rpm")] = maxRPM;
-    RPM_Meter[F("refresh-rate")] = refreshRate;
+    RPM_Meter[F("refresh-rate-hz")] = refreshRate;
+    RPM_Meter[F("flash-rate-hz")] = flashRate;
   }
 
   static const char _name[];
   static const char _maxRPM[];
   static const char _refreshRate[];
+  static const char _flashRate[];
 
 public:
   void setup()
@@ -109,10 +135,16 @@ public:
         displayRPM(currentRPM * 100 / maxRPM); // Process to LED
         lastRPM = currentRPM;
       }
+
+      // flash the LED strip if exceeding the maximum RPM value
+      if (currentRPM >= maxRPM)
+      {
+        warningLight(1000 / flashRate);
+      }
     }
   }
 
-  // Add turn signal state to JSON state API
+  // Add rpm meter state to JSON state API
   void addToJsonState(JsonObject &root)
   {
     JsonObject RPM_Meter = root[FPSTR(_name)];
@@ -130,13 +162,14 @@ public:
     bool configComplete = !RPM_Meter.isNull();
 
     // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
-    configComplete &= getJsonValue(RPM_Meter["max_RPM"], maxRPM, 9000);
-    configComplete &= getJsonValue(RPM_Meter["refresh_rate"], refreshRate, 5);
+    configComplete &= getJsonValue(RPM_Meter["max_RPM"], maxRPM, 7500);
+    configComplete &= getJsonValue(RPM_Meter["refresh_rate_hz"], refreshRate, 5);
+    configComplete &= getJsonValue(RPM_Meter["flash_rate_hz"], flashRate, 20);
 
     return configComplete;
   }
 
-  // Write turn signal configuration
+  // Write rpm meter configuration
   void addToConfig(JsonObject &root)
   {
     JsonObject RPM_Meter = root[FPSTR(_name)];
@@ -146,9 +179,11 @@ public:
     }
     RPM_Meter[FPSTR(_maxRPM)] = maxRPM;
     RPM_Meter[FPSTR(_refreshRate)] = refreshRate > 0 ? refreshRate : 5;
+    RPM_Meter[FPSTR(_flashRate)] = flashRate > 0 ? flashRate : 20;
   }
 };
 
 const char UsermodRPM_Meter::_name[] PROGMEM = "RPM-meter";
 const char UsermodRPM_Meter::_maxRPM[] PROGMEM = "max_RPM";
-const char UsermodRPM_Meter::_refreshRate[] PROGMEM = "refresh_rate";
+const char UsermodRPM_Meter::_refreshRate[] PROGMEM = "refresh_rate_hz";
+const char UsermodRPM_Meter::_flashRate[] PROGMEM = "flash_rate_hz";
