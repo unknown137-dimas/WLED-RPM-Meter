@@ -16,15 +16,20 @@ private:
   unsigned int maxRPM = 7500;
 
   // Timing related variables
+  unsigned long updateRate = 8;
   unsigned long refreshRate = 8;
   unsigned long flashRate = 20;
-  unsigned long now;
+  unsigned long updateNow;
+  unsigned long refreshNow;
   unsigned long warningNow;
 
   // Bluetooth related variables
   int btStatePin = D7;
   bool btState = false;
   bool lastBtState = false;
+
+  // Mod related variables
+  bool enable = true;
 
   /*
   OBD-II PID Requests, more info on https://en.wikipedia.org/wiki/OBD-II_PIDs#Standard_PIDs
@@ -81,15 +86,19 @@ private:
   // Write usermod state to JSON
   void writeToJson(JsonObject &RPM_Meter)
   {
+    RPM_Meter[F("enable")] = enable;
     RPM_Meter[F("bt-state")] = lastBtState;
     RPM_Meter[F("last-rpm")] = lastRPM;
     RPM_Meter[F("max-rpm")] = maxRPM;
+    RPM_Meter[F("update-rate-hz")] = updateRate;
     RPM_Meter[F("refresh-rate-hz")] = refreshRate;
     RPM_Meter[F("flash-rate-hz")] = flashRate;
   }
 
   static const char _name[];
+  static const char _enable[];
   static const char _maxRPM[];
+  static const char _updateRate[];
   static const char _refreshRate[];
   static const char _flashRate[];
 
@@ -109,12 +118,18 @@ public:
       lastBtState = btState;
     }
 
-    // Only run command if BT is connected
-    if (btState)
+    // Set LED strip to 100% to easily configure the color
+    if (!enable)
+    {
+      displayRPM(100);
+    }
+
+    // Only run command if BT is connected and enabled
+    if (btState && enable)
     {
       readData(); // Read RPM data from OBD
 
-      if (millis() - now > 1000 / refreshRate)
+      if (millis() - updateNow > 1000 / updateRate)
       {
         Serial.println("010C1"); // Send RPM PID request
 
@@ -126,14 +141,15 @@ public:
           currentRPM = strtol(data.c_str(), NULL, 16) / 4;                                                                          // Convert to RPM decimal value
         }
 
-        now = millis();
+        updateNow = millis();
       }
 
-      // Only update LED if there is a change in RPM value
-      if (currentRPM != lastRPM)
+      // Refresh LED
+      if (millis() - refreshNow > 1000 / refreshRate)
       {
         displayRPM(currentRPM * 100 / maxRPM); // Process to LED
         lastRPM = currentRPM;
+        refreshNow = millis();
       }
 
       // flash the LED strip if exceeding the maximum RPM value
@@ -162,7 +178,9 @@ public:
     bool configComplete = !RPM_Meter.isNull();
 
     // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
+    configComplete &= getJsonValue(RPM_Meter["enable"], enable, true);
     configComplete &= getJsonValue(RPM_Meter["max_RPM"], maxRPM, 7500);
+    configComplete &= getJsonValue(RPM_Meter["update_rate_hz"], updateRate, 5);
     configComplete &= getJsonValue(RPM_Meter["refresh_rate_hz"], refreshRate, 5);
     configComplete &= getJsonValue(RPM_Meter["flash_rate_hz"], flashRate, 20);
 
@@ -177,13 +195,17 @@ public:
     {
       RPM_Meter = root.createNestedObject(FPSTR(_name));
     }
+    RPM_Meter[FPSTR(_enable)] = enable;
     RPM_Meter[FPSTR(_maxRPM)] = maxRPM;
+    RPM_Meter[FPSTR(_updateRate)] = updateRate > 0 ? updateRate : 5;
     RPM_Meter[FPSTR(_refreshRate)] = refreshRate > 0 ? refreshRate : 5;
     RPM_Meter[FPSTR(_flashRate)] = flashRate > 0 ? flashRate : 20;
   }
 };
 
 const char UsermodRPM_Meter::_name[] PROGMEM = "RPM-meter";
+const char UsermodRPM_Meter::_enable[] PROGMEM = "enable";
 const char UsermodRPM_Meter::_maxRPM[] PROGMEM = "max_RPM";
+const char UsermodRPM_Meter::_updateRate[] PROGMEM = "update_rate_hz";
 const char UsermodRPM_Meter::_refreshRate[] PROGMEM = "refresh_rate_hz";
 const char UsermodRPM_Meter::_flashRate[] PROGMEM = "flash_rate_hz";
