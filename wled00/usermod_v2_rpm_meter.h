@@ -13,7 +13,7 @@ private:
   // RPM related variables
   unsigned int currentRPM = 0;
   unsigned int lastRPM = 0;
-  unsigned int maxRPM = 7500;
+  unsigned int maxRPM = 6500;
 
   // Timing related variables
   unsigned long updateRate = 8;
@@ -135,7 +135,7 @@ public:
 
         // Check if rawData has enough RPM data
         rawDataLength = rawData.length();
-        if (rawDataLength > 8)
+        if (rawDataLength > 8 && rawData.startsWith("410C"))
         {
           data = rawData.substring(rawDataLength - 9, rawDataLength - 7) + rawData.substring(rawDataLength - 6, rawDataLength - 4); // Get RPM hex value
           currentRPM = strtol(data.c_str(), NULL, 16) / 4;                                                                          // Convert to RPM decimal value
@@ -179,9 +179,9 @@ public:
 
     // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
     configComplete &= getJsonValue(RPM_Meter["enable"], enable, true);
-    configComplete &= getJsonValue(RPM_Meter["max_RPM"], maxRPM, 7500);
-    configComplete &= getJsonValue(RPM_Meter["update_rate_hz"], updateRate, 5);
-    configComplete &= getJsonValue(RPM_Meter["refresh_rate_hz"], refreshRate, 5);
+    configComplete &= getJsonValue(RPM_Meter["max_RPM"], maxRPM, 6500);
+    configComplete &= getJsonValue(RPM_Meter["update_rate_hz"], updateRate, 8);
+    configComplete &= getJsonValue(RPM_Meter["refresh_rate_hz"], refreshRate, 8);
     configComplete &= getJsonValue(RPM_Meter["flash_rate_hz"], flashRate, 20);
 
     return configComplete;
@@ -197,8 +197,8 @@ public:
     }
     RPM_Meter[FPSTR(_enable)] = enable;
     RPM_Meter[FPSTR(_maxRPM)] = maxRPM;
-    RPM_Meter[FPSTR(_updateRate)] = updateRate > 0 ? updateRate : 5;
-    RPM_Meter[FPSTR(_refreshRate)] = refreshRate > 0 ? refreshRate : 5;
+    RPM_Meter[FPSTR(_updateRate)] = updateRate > 0 ? updateRate : 8;
+    RPM_Meter[FPSTR(_refreshRate)] = refreshRate > 0 ? refreshRate : 8;
     RPM_Meter[FPSTR(_flashRate)] = flashRate > 0 ? flashRate : 20;
   }
 };
