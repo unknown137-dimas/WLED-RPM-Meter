@@ -135,7 +135,7 @@ public:
 
         // Check if rawData has enough RPM data
         rawDataLength = rawData.length();
-        if (rawDataLength > 8 && rawData.startsWith("410C"))
+        if (rawDataLength > 8)
         {
           data = rawData.substring(rawDataLength - 9, rawDataLength - 7) + rawData.substring(rawDataLength - 6, rawDataLength - 4); // Get RPM hex value
           currentRPM = strtol(data.c_str(), NULL, 16) / 4;                                                                          // Convert to RPM decimal value
