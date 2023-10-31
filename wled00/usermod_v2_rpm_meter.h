@@ -50,7 +50,7 @@ private:
   {
     while (Serial.available())
     {
-      rawData = Serial.readString();
+      rawData = Serial.readStringUntil('>');
     }
   }
 
@@ -86,6 +86,8 @@ private:
   // Write usermod state to JSON
   void writeToJson(JsonObject &RPM_Meter)
   {
+    RPM_Meter[F("raw-data")] = rawData;
+    RPM_Meter[F("data")] = data;
     RPM_Meter[F("enable")] = enable;
     RPM_Meter[F("bt-state")] = lastBtState;
     RPM_Meter[F("last-rpm")] = lastRPM;
@@ -129,26 +131,24 @@ public:
     {
       readData(); // Read RPM data from OBD
 
+      // Send RPM PID request
       if (millis() - updateNow > 1000 / updateRate)
       {
-        Serial.println("010C1"); // Send RPM PID request
-
-        // Check if rawData has enough RPM data
-        rawDataLength = rawData.length();
-        if (rawDataLength > 8)
-        {
-          data = rawData.substring(rawDataLength - 9, rawDataLength - 7) + rawData.substring(rawDataLength - 6, rawDataLength - 4); // Get RPM hex value
-          currentRPM = strtol(data.c_str(), NULL, 16) / 4;                                                                          // Convert to RPM decimal value
-        }
-
+        Serial.println("010C1");
         updateNow = millis();
       }
 
       // Refresh LED
       if (millis() - refreshNow > 1000 / refreshRate)
       {
-        displayRPM(currentRPM * 100 / maxRPM); // Process to LED
-        lastRPM = currentRPM;
+        rawDataLength = rawData.length();
+        if (rawDataLength > 8)
+        {
+          data = rawData.substring(rawDataLength - 8, rawDataLength - 6) + rawData.substring(rawDataLength - 5, rawDataLength - 3); // Get RPM hex value
+          currentRPM = strtol(data.c_str(), NULL, 16) / 4;                                                                          // Convert to RPM decimal value
+          displayRPM(currentRPM * 100 / maxRPM);                                                                                    // Process to LED
+          lastRPM = currentRPM;
+        }
         refreshNow = millis();
       }
 
