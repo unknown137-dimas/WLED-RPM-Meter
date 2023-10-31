@@ -132,14 +132,14 @@ public:
       readData(); // Read RPM data from OBD
 
       // Send RPM PID request
-      if (millis() - updateNow > 1000 / updateRate)
+      if (millis() - updateNow > 1000UL / updateRate)
       {
         Serial.println("010C1");
         updateNow = millis();
       }
 
       // Refresh LED
-      if (millis() - refreshNow > 1000 / refreshRate)
+      if (millis() - refreshNow > 1000UL / refreshRate)
       {
         rawDataLength = rawData.length();
         if (rawDataLength > 8)
