@@ -196,7 +196,7 @@ public:
       RPM_Meter = root.createNestedObject(FPSTR(_name));
     }
     RPM_Meter[FPSTR(_enable)] = enable;
-    RPM_Meter[FPSTR(_maxRPM)] = maxRPM;
+    RPM_Meter[FPSTR(_maxRPM)] = maxRPM > 0 ? maxRPM : 6500;
     RPM_Meter[FPSTR(_updateRate)] = updateRate > 0 ? updateRate : 8;
     RPM_Meter[FPSTR(_refreshRate)] = refreshRate > 0 ? refreshRate : 8;
     RPM_Meter[FPSTR(_flashRate)] = flashRate > 0 ? flashRate : 20;
